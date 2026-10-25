@@ -1,0 +1,97 @@
+services:
+  frontend:
+    build: ./frontend
+    container_name: emoji-frontend
+    ports:
+      - "${FRONTEND_PORT}:80"
+    networks:
+      - emoji-network
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    container_name: emoji-api
+    ports:
+      - "${API_PORT}:8000"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      N8N_URL: ${N8N_URL}
+    volumes:
+      - media:/app/media
+    networks:
+      - emoji-network
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: emoji-db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - emoji-network
+    restart: unless-stopped
+
+  n8n:
+    build: ./n8n
+    container_name: emoji-n8n
+    ports:
+      - "${N8N_PORT}:5678"
+    environment:
+      N8N_HOST: 0.0.0.0
+      NODE_ENV: production
+      TZ: ${TZ}
+      GENERIC_TIMEZONE: ${TZ}
+      # Depuis n8n v1.123+, le nœud Read/Write Files est restreint à
+      # /home/node/.n8n-files par défaut ("Access to the file is not
+      # allowed") — on autorise explicitement le dossier media partagé :
+      N8N_RESTRICT_FILE_ACCESS_TO: /home/node/media
+      # n8n 2.x stocke par défaut les binaires en filesystem-v2 : le nœud
+      # Code récupère une référence "filesystem-v2://..." au lieu du
+      # base64 (Mistral : "Cannot decode file 'filesystem-v2'"). On
+      # force le mode mémoire pour les fichiers binaires :
+      N8N_DEFAULT_BINARY_DATA_MODE: default
+      # Nécessaire si tu accèdes à n8n depuis une autre machine que la VM :
+      N8N_SECURE_COOKIE: "false"
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: ${DB_HOST}
+      DB_POSTGRESDB_PORT: ${DB_PORT}
+      DB_POSTGRESDB_DATABASE: ${N8N_DB_NAME}
+      DB_POSTGRESDB_USER: ${DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - media:/home/node/media
+    networks:
+      - emoji-network
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  media:
+  n8n_data:
+
+networks:
+  emoji-network:
+    driver: bridge

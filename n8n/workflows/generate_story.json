@@ -1,0 +1,117 @@
+{
+  "name": "Generate Story (Mistral)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-story",
+        "responseMode": "onReceived"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const emojis = $json.body.emojis.join(' ');\nconst isExt = $json.body.is_extension || false;\nconst prev = $json.body.previous_text || '';\nconst themeRaw = ($json.body.theme || '').trim();\nconst themeTxt = themeRaw ? ` L'histoire doit respecter ce thème imposé : « ${themeRaw} ».` : '';\nlet prompt;\nif (isExt && prev) {\n  prompt = `Voici l'histoire déjà commencée :\\n${prev}\\n\\nContinue cette histoire en intégrant ces nouveaux émoticônes : ${emojis}. Respecte le style et le ton.${themeTxt} Écris uniquement des mots : n'utilise AUCUN émoji ni émoticône dans le texte.`;\n} else {\n  prompt = `Raconte une histoire courte, captivante et imaginative (15 à 20 phrases) basée sur cette séquence d'émoticônes : ${emojis}.${themeTxt} L'histoire doit suivre l'ordre des émoticônes, être adaptée à un public général, avec un style de conte. Écris uniquement des mots : n'utilise AUCUN émoji ni émoticône dans le texte.`;\n}\nreturn [{ json: { story_id: $json.body.story_id, prompt: prompt } }];"
+      },
+      "id": "build-prompt",
+      "name": "Build Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"mistral-large-latest\", messages: [{ role: \"user\", content: $json.prompt }], temperature: 0.7, max_tokens: 1000 }) }}",
+        "options": {}
+      },
+      "id": "mistral-call",
+      "name": "Mistral API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [640, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MISTRAL_CREDENTIALS",
+          "name": "Mistral API Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const storyText = $json.choices[0].message.content;\nreturn [{ json: { story_id: $('Build Prompt').item.json.story_id, story_text: storyText } }];"
+      },
+      "id": "extract-story",
+      "name": "Extract Story",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://api:8000/stories/{{ $json.story_id }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: \"story_generated\", story_text: $json.story_text }) }}",
+        "options": {}
+      },
+      "id": "save-story",
+      "name": "Save Story (via API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1040, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://n8n:5678/webhook/generate-image",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ story_id: $json.story_id, emojis: $('Webhook').item.json.body.emojis, theme: $('Webhook').item.json.body.theme, story_text: $json.story_text }) }}",
+        "options": {}
+      },
+      "id": "trigger-image",
+      "name": "Trigger Image Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1260, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Build Prompt", "type": "main", "index": 0 }]]
+    },
+    "Build Prompt": {
+      "main": [[{ "node": "Mistral API", "type": "main", "index": 0 }]]
+    },
+    "Mistral API": {
+      "main": [[{ "node": "Extract Story", "type": "main", "index": 0 }]]
+    },
+    "Extract Story": {
+      "main": [[{ "node": "Save Story (via API)", "type": "main", "index": 0 }]]
+    },
+    "Save Story (via API)": {
+      "main": [[
+        { "node": "Trigger Image Workflow", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}

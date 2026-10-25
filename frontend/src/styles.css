@@ -1,0 +1,231 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+.app { max-width: 900px; margin: 0 auto; padding: 20px; }
+h1 { text-align: center; font-size: 2.5rem; margin-bottom: 5px; }
+.subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+.logo-link { display: block; width: fit-content; margin: 0 auto 6px; }
+.logo { height: 64px; display: block; }
+.emoji-btn, .gallery-emojis { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
+
+.error-banner {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.section {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+.section h2 { margin-bottom: 15px; font-size: 1.3rem; }
+.hint { color: #888; font-size: 0.9rem; margin-bottom: 10px; }
+
+.random-emojis { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
+.big-emoji {
+    font-size: 50px;
+    background: #f0f2ff;
+    padding: 15px;
+    border-radius: 12px;
+    animation: bounce 0.6s ease;
+}
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 10px;
+}
+.emoji-btn {
+    font-size: 28px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.emoji-btn:hover { background: #f0f0f0; transform: scale(1.2); }
+.emoji-btn.selected { background: #d4edda; opacity: 0.5; }
+.emoji-btn:disabled { cursor: not-allowed; }
+
+.sequence-list {
+    display: flex;
+    gap: 10px;
+    padding: 15px;
+    background: #f9f9fe;
+    border-radius: 12px;
+    overflow-x: auto;
+    min-height: 90px;
+    align-items: center;
+}
+.sequence-emoji {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: white;
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    cursor: grab;
+    min-width: 70px;
+}
+.sequence-emoji .num { font-size: 0.75rem; color: #764ba2; font-weight: bold; }
+.sequence-emoji .emoji { font-size: 36px; }
+
+.primary-btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    font-size: 1.2rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    margin: 20px auto;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.primary-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(102,126,234,0.4); }
+.primary-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+.secondary-btn {
+    display: block;
+    margin: 15px auto;
+    padding: 10px 25px;
+    font-size: 1rem;
+    background: white;
+    color: #764ba2;
+    border: 2px solid #764ba2;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.story-result {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    margin: 20px 0;
+}
+.story-text { font-size: 1.1rem; line-height: 1.8; white-space: pre-wrap; padding: 15px 0; }
+.media-section { text-align: center; margin: 25px 0; }
+.story-image { max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+.loading { text-align: center; font-size: 1.3rem; padding: 40px; color: #667eea; }
+.loading.small { font-size: 1rem; padding: 10px; color: #888; }
+.extend-section .extend-picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
+
+.topbar { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.secondary-btn.small { margin: 0; padding: 8px 16px; font-size: 0.9rem; }
+
+.theme-input {
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 1rem;
+    border: 2px solid #e0e0f0;
+    border-radius: 10px;
+    outline: none;
+}
+.theme-input:focus { border-color: #764ba2; }
+
+.story-theme {
+    display: inline-block;
+    background: #f0f2ff;
+    color: #764ba2;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.emoji-search {
+    width: 100%;
+    max-width: 420px;
+    padding: 10px 14px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-family: inherit;
+    margin-bottom: 12px;
+}
+.emoji-search:focus { outline: none; border-color: #764ba2; }
+
+.selected-emojis {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.selected-emoji-chip {
+    font-size: 30px;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+    background: #f0f2ff;
+    border: 2px solid #764ba2;
+    border-radius: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.selected-emoji-chip:hover { border-color: #c0392b; background: #fdecea; }
+
+.gallery-item {
+    position: relative;
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #fafafe;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 15px;
+    margin: 10px 0;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.gallery-item:hover { border-color: #764ba2; transform: translateY(-2px); }
+.gallery-item:focus { outline: 2px solid #764ba2; outline-offset: 2px; }
+.gallery-delete {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: #eee;
+    color: #c0392b;
+    font-size: 15px;
+    font-weight: bold;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.gallery-delete:hover { background: #c0392b; color: white; }
+.gallery-emojis { font-size: 24px; margin-bottom: 6px; }
+.gallery-theme { font-weight: bold; color: #764ba2; margin-bottom: 4px; }
+.gallery-excerpt { color: #666; font-size: 0.9rem; margin-bottom: 6px; }
+.gallery-meta { color: #999; font-size: 0.8rem; }

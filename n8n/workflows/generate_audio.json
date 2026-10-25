@@ -1,0 +1,165 @@
+{
+  "name": "Generate Ambience (Pixtral + ElevenLabs SFX)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-audio",
+        "responseMode": "onReceived"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "readFile",
+        "fileSelector": "=/home/node/media/{{ $('Webhook').item.json.body.story_id }}.jpg",
+        "options": {
+          "dataPropertyName": "image"
+        }
+      },
+      "id": "read-image",
+      "name": "Read Image File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b64 = $('Read Image File').item.binary.image.data;\nconst dataUri = 'data:image/jpeg;base64,' + b64;\nconst story = ($('Webhook').item.json.body.story_text || '').slice(0, 1200);\nconst theme = ($('Webhook').item.json.body.theme || '').trim();\nconst visionPrompt = `You are a sound designer. Look at this story illustration and the story context, then write ONE concise English prompt (max 60 words) for an AI sound generator: an immersive ambient soundscape evoking this scene's mood, environment and era. No speech, no narration - only the soundscape prompt.\\nTheme: ${theme}\\nStory excerpt: ${story}`;\nreturn [{ json: { story_id: $('Webhook').item.json.body.story_id, visionPrompt: visionPrompt, dataUri: dataUri } }];"
+      },
+      "id": "build-ambience-prompt",
+      "name": "Build Ambience Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"mistral-medium-latest\", messages: [{ role: \"user\", content: [{ type: \"text\", text: $json.visionPrompt }, { type: \"image_url\", image_url: { url: $json.dataUri } }] }], temperature: 0.4, max_tokens: 120 }) }}",
+        "options": {}
+      },
+      "id": "pixtral-call",
+      "name": "Pixtral Analyzes Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [840, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "MISTRAL_CREDENTIALS",
+          "name": "Mistral API Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ambiencePrompt = $json.choices[0].message.content.trim();\nreturn [{ json: { story_id: $('Build Ambience Prompt').item.json.story_id, ambiencePrompt: ambiencePrompt } }];"
+      },
+      "id": "extract-ambience",
+      "name": "Extract Ambience Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/sound-generation",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.ambiencePrompt, duration_seconds: 20 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "elevenlabs-sfx",
+      "name": "ElevenLabs Sound Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1240, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ELEVENLABS_CREDENTIALS",
+          "name": "ElevenLabs API Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "writeFile",
+        "fileName": "=/home/node/media/{{ $('Extract Ambience Prompt').item.json.story_id }}.mp3",
+        "dataPropertyName": "data"
+      },
+      "id": "save-audio",
+      "name": "Save Audio File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://api:8000/stories/{{ $('Extract Ambience Prompt').item.json.story_id }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ audio_url: \"/media/\" + $('Extract Ambience Prompt').item.json.story_id + \".mp3\", status: \"completed\" }) }}",
+        "options": {}
+      },
+      "id": "update-db-audio",
+      "name": "Update Story (via API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1640, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Read Image File", "type": "main", "index": 0 }]]
+    },
+    "Read Image File": {
+      "main": [[{ "node": "Build Ambience Prompt", "type": "main", "index": 0 }]]
+    },
+    "Build Ambience Prompt": {
+      "main": [[{ "node": "Pixtral Analyzes Image", "type": "main", "index": 0 }]]
+    },
+    "Pixtral Analyzes Image": {
+      "main": [[{ "node": "Extract Ambience Prompt", "type": "main", "index": 0 }]]
+    },
+    "Extract Ambience Prompt": {
+      "main": [[{ "node": "ElevenLabs Sound Generation", "type": "main", "index": 0 }]]
+    },
+    "ElevenLabs Sound Generation": {
+      "main": [[{ "node": "Save Audio File", "type": "main", "index": 0 }]]
+    },
+    "Save Audio File": {
+      "main": [[{ "node": "Update Story (via API)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}

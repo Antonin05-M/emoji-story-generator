@@ -1,0 +1,114 @@
+{
+  "name": "Generate Image (Pollinations)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-image",
+        "responseMode": "onReceived"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const emojis = $json.body.emojis.join(' ');\nconst themeRaw = ($json.body.theme || '').trim();\nconst themeTxt = themeRaw ? `, theme: ${themeRaw}` : '';\nconst storyRaw = ($json.body.story_text || '').replace(/\\s+/g, ' ').trim().slice(0, 500);\nconst storyTxt = storyRaw ? ` Inspired by this story: ${storyRaw}` : '';\nconst prompt = `Story illustration, colorful expressive cartoon style${themeTxt}, scene represented by these emojis: ${emojis}.${storyTxt}. Depict the main characters and the setting of the story. No text or letters in the image.`;\nreturn [{ json: { story_id: $json.body.story_id, prompt: prompt } }];"
+      },
+      "id": "build-prompt",
+      "name": "Build Image Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://image.pollinations.ai/prompt/{{ encodeURIComponent($json.prompt) }}?width=1024&height=768&nologo=true&model=flux",
+        "method": "GET",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "pollinations-call",
+      "name": "Pollinations Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [640, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "writeFile",
+        "fileName": "=/home/node/media/{{ $('Build Image Prompt').item.json.story_id }}.jpg",
+        "dataPropertyName": "data"
+      },
+      "id": "save-image",
+      "name": "Save Image File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://api:8000/stories/{{ $('Build Image Prompt').item.json.story_id }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ image_url: \"/media/\" + $('Build Image Prompt').item.json.story_id + \".jpg\" }) }}",
+        "options": {}
+      },
+      "id": "update-db-image",
+      "name": "Update Story (via API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1040, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://n8n:5678/webhook/generate-audio",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ story_id: $json.story_id, theme: $json.theme, story_text: $json.story_text, image_prompt: $('Build Image Prompt').item.json.prompt }) }}",
+        "options": {}
+      },
+      "id": "trigger-audio",
+      "name": "Trigger Ambience Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1240, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Build Image Prompt", "type": "main", "index": 0 }]]
+    },
+    "Build Image Prompt": {
+      "main": [[{ "node": "Pollinations Image", "type": "main", "index": 0 }]]
+    },
+    "Pollinations Image": {
+      "main": [[{ "node": "Save Image File", "type": "main", "index": 0 }]]
+    },
+    "Save Image File": {
+      "main": [[{ "node": "Update Story (via API)", "type": "main", "index": 0 }]]
+    },
+    "Update Story (via API)": {
+      "main": [[{ "node": "Trigger Ambience Workflow", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}
